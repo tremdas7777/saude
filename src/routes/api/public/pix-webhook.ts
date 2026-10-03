@@ -5,8 +5,8 @@ const PAID = ["paid", "approved"];
 
 /** Extrai o id da transação de vários formatos possíveis de corpo. */
 function extractId(body: Record<string, unknown>): string | null {
-  const data = body.data as Record<string, unknown> | undefined;
-  const candidates = [body.transaction_id, body.id, data?.id];
+  const data = body["data"] as Record<string, unknown> | undefined;
+  const candidates = [body["transaction_id"], body["id"], data?.["id"]];
   const id = candidates.find((c) => typeof c === "string" && c.length > 0 && c.length <= 80);
   return typeof id === "string" ? id : null;
 }
