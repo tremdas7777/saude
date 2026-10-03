@@ -26,14 +26,11 @@ export function ProductImage({ product, className }: { product: Product; classNa
   const Icon = ICONS[product.categories[0]];
   return (
     <div
-      className={cn(
-        "flex aspect-square w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-teal-soft to-white p-6 text-center",
-        className,
-      )}
+      className={cn("flex aspect-square w-full flex-col items-center justify-center gap-2 bg-[#f2f5f6] p-6 text-center", className)}
       aria-label={product.name}
     >
-      <Icon className="h-1/4 w-1/4 text-teal" strokeWidth={1.25} />
-      <span className="text-[11px] font-medium uppercase tracking-wider text-teal-dark/70">Foto em breve</span>
+      <Icon className="h-1/5 w-1/5 text-navy/20" strokeWidth={1} />
+      <span className="text-[10px] font-medium uppercase tracking-wider text-navy/30">Imagem em breve</span>
     </div>
   );
 }
