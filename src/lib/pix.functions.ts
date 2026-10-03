@@ -79,26 +79,32 @@ export const createPixCharge = createServerFn({ method: "POST" })
     }
     const id = String(json.id);
 
-    // TODO: salvar o pedido em banco (endereço + itens) quando o Lovable Cloud estiver ativo.
-    // Enquanto isso, o pedido completo fica registrado no log do servidor para não se perder.
+    // Salva o pedido no banco (service role, servidor). Se o insert falhar,
+    // registra o erro mas não impede o cliente de receber o Pix.
     const h = getRequest()?.headers;
-    console.log(
-      "movvi-order",
-      JSON.stringify({
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const { error } = await supabaseAdmin.from("orders").insert({
         id,
-        amount,
+        status: "waiting_payment",
+        amount_cents: amount,
         customer: { name: data.name, email: data.email, phone: data.phone, cpf: data.cpf },
         endereco: data.endereco,
         cep: data.cep,
-        frete: frete.name,
+        frete: { id: frete.id, name: frete.name, price: frete.price },
         items: lines.map((l) => ({ slug: l.product.slug, name: l.product.name, qty: l.qty, price: l.product.price })),
         ip: h?.get("cf-connecting-ip") ?? null,
-        at: new Date().toISOString(),
-      }),
-    );
+        ua: h?.get("user-agent") ?? null,
+      });
+      if (error) console.error("Falha ao salvar pedido no banco:", error.message);
+    } catch (e) {
+      console.error("Falha ao salvar pedido no banco:", e);
+    }
 
     return { id, qrcode: String(json.pix), amount };
   });
+
+const PAID_STATUSES = ["paid", "approved"];
 
 /** Status do Pix consultado direto na PixGate (fonte confiável). */
 export const getPixStatus = createServerFn({ method: "GET" })
@@ -108,5 +114,22 @@ export const getPixStatus = createServerFn({ method: "GET" })
       headers: { Apikey: apiKey(), Accept: "application/json" },
     });
     const json = (await res.json().catch(() => null)) as { status?: unknown } | null;
-    return { status: String(json?.status ?? "pending").toLowerCase() };
+    const status = String(json?.status ?? "pending").toLowerCase();
+
+    // Pagamento confirmado pela PixGate: marca o pedido como pago (uma única vez).
+    if (PAID_STATUSES.includes(status)) {
+      try {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { error } = await supabaseAdmin
+          .from("orders")
+          .update({ status: "paid", paid_at: new Date().toISOString() })
+          .eq("id", data.id)
+          .neq("status", "paid");
+        if (error) console.error("Falha ao marcar pedido como pago:", error.message);
+      } catch (e) {
+        console.error("Falha ao marcar pedido como pago:", e);
+      }
+    }
+
+    return { status };
   });
